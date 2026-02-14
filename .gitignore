@@ -1,0 +1,62 @@
+# Mini-LCL Framework .gitignore
+
+# FreePascal Build-Artefakte
+*.o
+*.ppu
+*.compiled
+*.or
+*.a
+link*.res
+ppas.sh
+
+# Executable-Dateien  
+demo_minilcl
+*.exe
+*.app
+
+# Build-Verzeichnisse
+build/
+dist/
+lib/
+backup/
+
+# IDE-spezifische Dateien
+.idea/
+*.lps
+*.lpi~
+*.pas~
+*.inc~
+*.lpr~
+
+# Temporäre Dateien
+*~
+*.tmp
+*.bak
+*.orig
+
+# System-spezifische Dateien
+.DS_Store
+Thumbs.db
+*.log
+
+# Test-Ausgaben
+test_output/
+*.test
+
+# Distribution-Archive
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Debugging-Dateien  
+*.dbg
+gdb.txt
+
+# Documentation Build
+docs/_build/
+docs/*.html
+
+# Custom
+/old/
+/scratch/

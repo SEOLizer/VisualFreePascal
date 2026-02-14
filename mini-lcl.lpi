@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="12"/>
+    <General>
+      <Title Value="Mini-LCL Framework"/>
+      <Flags>
+        <CompatibilityMode Value="True"/>
+      </Flags>
+      <SessionStorage Value="InProjectDir"/>
+      <AutoCreateForms Value="False"/>
+      <MainUnit Value="0"/>
+      <ResourceType Value="res"/>
+    </General>
+    <BuildModes Count="2">
+      <Item1 Name="Debug" Default="True"/>
+      <Item2 Name="Release">
+        <CompilerOptions>
+          <Version Value="11"/>
+          <Target>
+            <Filename Value="build/linux-x64/demo_minilcl"/>
+          </Target>
+          <SearchPaths>
+            <IncludeFiles Value="src/rtl;src/framework;src/widgets"/>
+            <OtherUnitFiles Value="src/rtl;src/framework;src/widgets"/>
+            <UnitOutputDirectory Value="build/linux-x64"/>
+          </SearchPaths>
+          <CodeGeneration>
+            <SmartLinkUnit Value="True"/>
+            <Optimizations>
+              <OptimizationLevel Value="3"/>
+            </Optimizations>
+          </CodeGeneration>
+          <Linking>
+            <Debugging>
+              <GenerateDebugInfo Value="False"/>
+              <StripSymbols Value="True"/>
+            </Debugging>
+            <LinkSmart Value="True"/>
+            <Options>
+              <PassLinkerOptions Value="True"/>
+              <LinkerOptions Value="-lgtk-4 -lgio-2.0 -lgobject-2.0 -lglib-2.0"/>
+            </Options>
+          </Linking>
+        </CompilerOptions>
+      </Item2>
+    </BuildModes>
+    <PublishOptions>
+      <Version Value="2"/>
+      <UseFileFilters Value="True"/>
+    </PublishOptions>
+    <RunParams>
+      <FormatVersion Value="2"/>
+    </RunParams>
+    <Units Count="8">
+      <Unit0>
+        <Filename Value="examples/basic/demo_minilcl.lpr"/>
+        <IsPartOfProject Value="True"/>
+      </Unit0>
+      <Unit1>
+        <Filename Value="src/rtl/rtl_sys.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="src/rtl/events.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit2>
+      <Unit3>
+        <Filename Value="src/rtl/classes.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit3>
+      <Unit4>
+        <Filename Value="src/framework/controls.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit4>
+      <Unit5>
+        <Filename Value="src/framework/forms.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit5>
+      <Unit6>
+        <Filename Value="src/framework/stdctrls.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit6>
+      <Unit7>
+        <Filename Value="src/widgets/ws_intf.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit7>
+      <Unit8>
+        <Filename Value="src/widgets/ws_linux_gtk4.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit8>
+    </Units>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <Target>
+      <Filename Value="build/linux-x64/demo_minilcl"/>
+    </Target>
+    <SearchPaths>
+      <IncludeFiles Value="src/rtl;src/framework;src/widgets"/>
+      <OtherUnitFiles Value="src/rtl;src/framework;src/widgets"/>
+      <UnitOutputDirectory Value="build/linux-x64"/>
+    </SearchPaths>
+    <Linking>
+      <Options>
+        <PassLinkerOptions Value="True"/>
+        <LinkerOptions Value="-lgtk-4 -lgio-2.0 -lgobject-2.0 -lglib-2.0"/>
+      </Options>
+    </Linking>
+  </CompilerOptions>
+</CONFIG>
