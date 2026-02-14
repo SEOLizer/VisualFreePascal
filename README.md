@@ -12,6 +12,11 @@ Mini-LCL ist ein Proof-of-Concept für eine saubere, erweiterbare GUI-Architektu
 - ✅ **WidgetSet-Pattern:** Saubere Backend-Abstraktion  
 - ✅ **GTK4-Integration:** Vollständige GTK4-Unterstützung mit Inline-Bindings
 - ✅ **Event-System:** GTK4 Signals → Pascal OnClick Events
+- ✅ **DFM-Streaming:** Vollständiger DFM/LFM Parser und Writer
+  - Parse DFM-Dateien (Text-Format)
+  - AST-basierte Manipulation
+  - Roundtrip-Stabilität (Parse → Modify → Serialize)
+  - Unterstützt: Objekthierarchien, Properties, Sets, Collections
 - ✅ **Production-Ready:** Persistente Application mit sauberem Shutdown
 
 ## Schnellstart
@@ -48,7 +53,8 @@ mini-lcl/
 ├── src/                    # Quellcode
 │   ├── rtl/               # RTL-Basis (Exceptions, Events, Components)
 │   ├── framework/         # GUI-Framework (Controls, Forms, StdCtrls)
-│   └── widgets/           # WidgetSet-Backend (Interface + GTK4)
+│   ├── widgets/           # WidgetSet-Backend (Interface + GTK4)
+│   └── streaming/         # DFM/LFM Parser und Writer
 ├── examples/              # Beispielprogramme
 │   └── basic/            # Basis-Demo
 ├── build/                # Build-Artefakte
@@ -71,8 +77,48 @@ mini-lcl/
 ├─────────────────┤
 │  Platform       │  ← ws_linux_gtk4.pas
 ├─────────────────┤
+│  Streaming      │  ← dfm_parser.pas, dfm_writer.pas
+├─────────────────┤
 │  RTL            │  ← rtl_sys.pas, events.pas, classes.pas  
 └─────────────────┘
+```
+
+## DFM/LFM Streaming
+
+Das Framework enthält einen vollständigen **DFM-Parser und Writer** für Delphi Form Files:
+
+### Features
+- **Parsen**: Lade DFM-Dateien aus Textformat
+- **AST-Manipulation**: Bearbeite Objekthierarchien programmatisch  
+- **Serialisierung**: Speichere zurück als DFM-Text
+- **Roundtrip**: Parse → Modify → Serialize ohne Datenverlust
+
+### Unterstützte Value-Typen
+| Typ | Beispiel |
+|-----|----------|
+| Integer | `Left = 100` |
+| Float | `Opacity = 0.5` |
+| Boolean | `Visible = True` |
+| String | `Caption = 'Hello'` |
+| Identifier | `BorderStyle = bsDialog` |
+| Set | `Anchors = [akLeft, akTop]` |
+| Collection | `Items = < item ... end >` |
+| Binary | `{ 4D5A... }` |
+
+### Beispiel
+```pascal
+uses dfm_ast, dfm_parser, dfm_writer;
+
+// DFM laden
+var Parser := TDfmParser.Create;
+var Doc := Parser.ParseText('object Form1: TForm ... end');
+
+// Manipulieren
+Doc.Root.Properties.AddObject('Left', TDfmValue.Create(dvkInteger, '200'));
+
+// Speichern
+var Writer := TDfmWriter.Create;
+var Output := Writer.WriteDocument(Doc);
 ```
 
 ### Design-Patterns

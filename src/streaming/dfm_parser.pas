@@ -37,6 +37,10 @@ function TDfmParser.ParseText(const AText: string): TDfmDocument;
     ChildDoc: TDfmDocument;
     Val: TDfmValue;
     ChildLine: string;
+    OpenBracketPos, CloseBracketPos: Integer;
+    OpenAnglePos, CloseAnglePos: Integer;
+    SetContent: string;
+    CollContent: string;
   begin
     Result := nil;
     EndPos := StartPos;
@@ -61,14 +65,12 @@ function TDfmParser.ParseText(const AText: string): TDfmDocument;
       begin
         if InObject and (ObjectDepth = 1) then
         begin
-          // Ende des aktuellen Objekts
           EndPos := StartPos + Length(Line) + 1;
           Inc(LineIdx);
           Break;
         end
         else if InObject then
         begin
-          // Ende eines Child-Objekts
           Dec(ObjectDepth);
           Inc(LineIdx);
         end;
@@ -77,12 +79,10 @@ function TDfmParser.ParseText(const AText: string): TDfmDocument;
       begin
         if not InObject then
         begin
-          // Start des Root-Objekts
           InObject := True;
           ObjectDepth := 1;
           
-          // Parse: object InstanceName: ClassName
-          Delete(Trimmed, 1, 7); // Remove "object "
+          Delete(Trimmed, 1, 7);
           ColonPos := Pos(':', Trimmed);
           if ColonPos > 0 then
           begin
@@ -100,15 +100,10 @@ function TDfmParser.ParseText(const AText: string): TDfmDocument;
         end
         else
         begin
-          // Start eines Child-Objekts
           Inc(ObjectDepth);
-          
-          // Rekursiv parsen
           ChildEndPos := 0;
           ChildText := '';
           ChildStartIdx := LineIdx;
-          
-          // Finde das Ende des Child-Objekts
           ChildDepth := 1;
           J := LineIdx + 1;
           while J < Length(Lines) do
@@ -121,7 +116,6 @@ function TDfmParser.ParseText(const AText: string): TDfmDocument;
               Dec(ChildDepth);
               if ChildDepth = 0 then
               begin
-                // Child-Objekt endet hier
                 for K := ChildStartIdx to J do
                 begin
                   if ChildText <> '' then ChildText := ChildText + #10;
@@ -141,26 +135,76 @@ function TDfmParser.ParseText(const AText: string): TDfmDocument;
               if Assigned(ChildDoc.Root) then
               begin
                 Result.AddChild(ChildDoc.Root);
-                ChildDoc.Root := nil; // Ownership übertragen
+                ChildDoc.Root := nil;
               end;
               ChildDoc.Free;
             finally
               ChildParser.Free;
             end;
           end;
-          
           LineIdx := J + 1;
         end;
       end
       else if InObject and (ObjectDepth = 1) and (Pos('=', Trimmed) > 0) then
       begin
-        // Property
         EqualsPos := Pos('=', Trimmed);
         PropName := Trim(Copy(Trimmed, 1, EqualsPos - 1));
         PropValue := Trim(Copy(Trimmed, EqualsPos + 1, Length(Trimmed)));
         
-        // Wert-Typ bestimmen
-        if SameText(PropValue, 'True') then
+        // Prüfe auf Set: [akLeft, akTop]
+        if (Length(PropValue) > 0) and (PropValue[1] = '[') then
+        begin
+          OpenBracketPos := Pos('[', PropValue);
+          CloseBracketPos := Pos(']', PropValue);
+          if CloseBracketPos = 0 then
+          begin
+            // Set erstreckt sich über mehrere Zeilen
+            SetContent := PropValue;
+            Inc(LineIdx);
+            while LineIdx < Length(Lines) do
+            begin
+              SetContent := SetContent + ' ' + Trim(Lines[LineIdx]);
+              if Pos(']', Trim(Lines[LineIdx])) > 0 then
+                Break;
+              Inc(LineIdx);
+            end;
+            Val := TDfmValue.Create(dvkSet, SetContent);
+          end
+          else
+          begin
+            Val := TDfmValue.Create(dvkSet, PropValue);
+          end;
+        end
+        // Prüfe auf Collection: < item ... end >
+        else if (Length(PropValue) > 0) and (PropValue[1] = '<') then
+        begin
+          OpenAnglePos := Pos('<', PropValue);
+          CloseAnglePos := Pos('>', PropValue);
+          if CloseAnglePos = 0 then
+          begin
+            // Collection erstreckt sich über mehrere Zeilen
+            CollContent := PropValue;
+            Inc(LineIdx);
+            while LineIdx < Length(Lines) do
+            begin
+              CollContent := CollContent + ' ' + Trim(Lines[LineIdx]);
+              if Pos('>', Trim(Lines[LineIdx])) > 0 then
+                Break;
+              Inc(LineIdx);
+            end;
+            Val := TDfmValue.Create(dvkCollection, CollContent);
+          end
+          else
+          begin
+            Val := TDfmValue.Create(dvkCollection, PropValue);
+          end;
+        end
+        // Prüfe auf Binary: { ... }
+        else if (Length(PropValue) > 0) and (PropValue[1] = '{') then
+        begin
+          Val := TDfmValue.Create(dvkBinary, PropValue);
+        end
+        else if SameText(PropValue, 'True') then
           Val := TDfmValue.Create(dvkBoolean, 'True')
         else if SameText(PropValue, 'False') then
           Val := TDfmValue.Create(dvkBoolean, 'False')
@@ -174,7 +218,12 @@ function TDfmParser.ParseText(const AText: string): TDfmDocument;
             Val := TDfmValue.Create(dvkInteger, PropValue);
         end
         else if (Length(PropValue) > 0) and (PropValue[1] = '''') then
-          Val := TDfmValue.Create(dvkString, PropValue)
+        begin
+          // String: Entferne umschließende Quotes
+          if (Length(PropValue) >= 2) and (PropValue[Length(PropValue)] = '''') then
+            PropValue := Copy(PropValue, 2, Length(PropValue) - 2);
+          Val := TDfmValue.Create(dvkString, PropValue);
+        end
         else
           Val := TDfmValue.Create(dvkIdentifier, PropValue);
           

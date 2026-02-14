@@ -129,15 +129,15 @@ end;
 { TObjectList - Liste die TObject-Instanzen besitzt                            }
 {==============================================================================}
 
-type
-  TObjectList = class(TList)
-  private
-    FOwnsObjects: Boolean;
-  public
-    constructor Create(AOwnsObjects: Boolean = True);
-    destructor Destroy; override;
-    procedure Clear; override;
-    procedure Delete(Index: Integer); override;
+  type
+    TObjectList = class(TList)
+    private
+      FOwnsObjects: Boolean;
+    public
+      constructor Create(AOwnsObjects: Boolean = True);
+      destructor Destroy; override;
+      procedure Clear;
+      procedure Delete(Index: Integer);
     function GetItem(Index: Integer): TObject;
     procedure SetItem(Index: Integer; Value: TObject);
     function Add(Item: TObject): Integer;
