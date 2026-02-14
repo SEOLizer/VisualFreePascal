@@ -127,80 +127,14 @@ var
 
 implementation
 
-// Forward-Deklaration für Main Form Referenz
+// Globale Referenz für Main Form (für GTK4 activate handler)
 var
   GlobalMainForm: TWinControl = nil;
 
-// Prozedur zum Iterieren und Hinzufügen von Controls zu einer GTK-Box
-procedure IterateAndAddControls(AControl: TWinControl; AGtkParentBox: PGtkBox);
-var
-  I: Integer;
-  LChildControl: TControl;
-  LWSButton: TGtk4WSButton;
-  LButtonWidget: PGtkButton;
-begin
-  if not Assigned(AControl) or not Assigned(AGtkParentBox) then
-    Exit;
-
-  WriteLn('Iteriere Controls für Parent: ', AControl.ClassName);
-
-  // Durchlaufe alle Kind-Controls des übergebenen AControl
-  for I := 0 to AControl.ControlCount - 1 do
-  begin
-    LChildControl := AControl.Controls[I];
-    WriteLn('  Verarbeite Kind-Control: ', LChildControl.ClassName);
-
-    if LChildControl is TButton then
-    begin
-      LWSButton := TGtk4WSButton(LChildControl.FWSControl);
-      
-      // Erstelle das GTK Button Widget
-      LButtonWidget := gtk_button_new_with_label(PChar(TButton(LChildControl).Caption));
-      if Assigned(LButtonWidget) then
-      begin
-        LWSButton.FWidget := PGtkWidget(LButtonWidget);
-        TWinControl(LChildControl).FHandle := PGtkWidget(LButtonWidget);
-
-        // Speichere die Pascal-Control-Referenz im GTK-Widget
-        g_object_set_data(PGObject(LButtonWidget), 'mini_lcl_obj', gpointer(LChildControl));
-
-        // Verbinde das 'clicked'-Signal
-        g_signal_connect(LButtonWidget, 'clicked', @OnGtkButtonClicked, nil);
-
-        // Füge den Button zur Parent-Box hinzu
-        gtk_box_append(AGtkParentBox, PGtkWidget(LButtonWidget));
-        WriteLn('    GTK4 Button erstellt und hinzugefügt: ' + TButton(LChildControl).Caption);
-      end
-      else
-        WriteLn('    FEHLER: GTK4 Button-Erstellung für ' + TButton(LChildControl).Caption + ' fehlgeschlagen.');
-    end
-    // Hier können weitere Control-Typen hinzugefügt werden (z.B. TLabel, TEdit)
-
-    // Rekursiver Aufruf für Container-Controls (falls es welche gäbe und sie eigene Boxes hätten)
-    // Für diesen PoC gehen wir davon aus, dass Buttons direkt auf der Form sind.
-    // if LChildControl is TWinControl then
-    // begin
-    //   // Wenn ein Container-Control eine eigene GtkBox hätte, würde diese hier übergeben.
-    //   IterateAndAddControls(TWinControl(LChildControl), AGtkSomeChildBox);
-    // end;
-  end;
-end;
-
-// GTK4 Startup Handler - wird vor activate aufgerufen
-procedure OnGtkStartup(app: PGtkApplication; user_data: gpointer); cdecl;
-begin
-  try
-    WriteLn('GTK4 Application startup - bereit für Window-Erstellung');
-    // Hier können wir nichts machen - Windows werden erst in activate erstellt
-  except
-    on E: Exception do
-      WriteLn('FEHLER in OnGtkStartup: ', E.Message);
-  end;
-end;
-
-// Forward-Deklaration für Main Form Referenz
-var
-  GlobalMainForm: TWinControl = nil;
+// Forward-Deklarationen für Event-Handler
+procedure OnGtkButtonClicked(widget: PGtkWidget; user_data: gpointer); cdecl; forward;
+procedure OnWindowClose(widget: PGtkWidget; user_data: gpointer); cdecl; forward;
+function OnMouseEvent(widget: PGtkWidget; event: Pointer; user_data: gpointer): gboolean; cdecl; forward;
 
 // Helper-Funktion für g_signal_connect 
 function g_signal_connect(instance: gpointer; detailed_signal: Pgchar; 
@@ -216,7 +150,6 @@ begin
   end;
 end;
 
-// Window Close Event Handler
 // Mouse Event Handler (für Form Mouse-Events)
 function OnMouseEvent(widget: PGtkWidget; event: Pointer; user_data: gpointer): gboolean; cdecl;
 begin
@@ -225,6 +158,7 @@ begin
   Result := False;
 end;
 
+// Window Close Event Handler
 procedure OnWindowClose(widget: PGtkWidget; user_data: gpointer); cdecl;
 var
   Control: TObject;
@@ -256,6 +190,7 @@ begin
   end;
 end;
 
+// Button Click Event Handler
 procedure OnGtkButtonClicked(widget: PGtkWidget; user_data: gpointer); cdecl;
 var
   Control: TObject;
@@ -274,18 +209,6 @@ begin
   end;
 end;
 
-// GTK4 Startup Handler - wird vor activate aufgerufen
-procedure OnGtkStartup(app: PGtkApplication; user_data: gpointer); cdecl;
-begin
-  try
-    WriteLn('GTK4 Application startup - bereit für Window-Erstellung');
-    // Hier können wir nichts machen - Windows werden erst in activate erstellt
-  except
-    on E: Exception do
-      WriteLn('FEHLER in OnGtkStartup: ', E.Message);
-  end;
-end;
-
 // Prozedur zum Iterieren und Hinzufügen von Controls zu einer GTK-Box
 procedure IterateAndAddControls(AControl: TWinControl; AGtkParentBox: PGtkBox);
 var
@@ -293,6 +216,7 @@ var
   LChildControl: TControl;
   LWSButton: TGtk4WSButton;
   LButtonWidget: PGtkButton;
+  LControlWS: TObject;
 begin
   if not Assigned(AControl) or not Assigned(AGtkParentBox) then
     Exit;
@@ -307,7 +231,15 @@ begin
 
     if LChildControl is TButton then
     begin
-      LWSButton := TGtk4WSButton(LChildControl.FWSControl);
+      // Hole das WidgetSet-Objekt aus dem Pascal-Control (TButton ist ein TWinControl)
+      LControlWS := TWinControl(LChildControl).FWSControl;
+      if not Assigned(LControlWS) then
+      begin
+        WriteLn('    FEHLER: FWSControl nicht zugewiesen für ', LChildControl.ClassName);
+        Continue;
+      end;
+      
+      LWSButton := TGtk4WSButton(TWSWinControl(LControlWS));
       
       // Erstelle das GTK Button Widget
       LButtonWidget := gtk_button_new_with_label(PChar(TButton(LChildControl).Caption));
@@ -319,8 +251,8 @@ begin
         // Speichere die Pascal-Control-Referenz im GTK-Widget
         g_object_set_data(PGObject(LButtonWidget), 'mini_lcl_obj', gpointer(LChildControl));
 
-        // Verbinde das 'clicked'-Signal
-        g_signal_connect(LButtonWidget, 'clicked', @OnGtkButtonClicked, nil);
+        // TEMPORÄR DEAKTIVIERT: Verbinde das 'clicked'-Signal
+        // g_signal_connect(LButtonWidget, 'clicked', @OnGtkButtonClicked, nil);
 
         // Füge den Button zur Parent-Box hinzu
         gtk_box_append(AGtkParentBox, PGtkWidget(LButtonWidget));
@@ -330,24 +262,28 @@ begin
         WriteLn('    FEHLER: GTK4 Button-Erstellung für ' + TButton(LChildControl).Caption + ' fehlgeschlagen.');
     end
     // Hier können weitere Control-Typen hinzugefügt werden (z.B. TLabel, TEdit)
-
-    // Rekursiver Aufruf für Container-Controls (falls es welche gäbe und sie eigene Boxes hätten)
-    // Für diesen PoC gehen wir davon aus, dass Buttons direkt auf der Form sind.
-    // if LChildControl is TWinControl then
-    // begin
-    //   // Wenn ein Container-Control eine eigene GtkBox hätte, würde diese hier übergeben.
-    //   IterateAndAddControls(TWinControl(LChildControl), AGtkSomeChildBox);
-    // end;
   end;
 end;
 
-// GTK4 Event-Handler (C-Callbacks)
+// GTK4 Startup Handler - wird vor activate aufgerufen
+procedure OnGtkStartup(app: PGtkApplication; user_data: gpointer); cdecl;
+begin
+  try
+    WriteLn('GTK4 Application startup - bereit für Window-Erstellung');
+  except
+    on E: Exception do
+      WriteLn('FEHLER in OnGtkStartup: ', E.Message);
+  end;
+end;
+
+// GTK4 Activate Handler - wird aufgerufen wenn Application aktiviert wird
 procedure OnGtkActivate(app: PGtkApplication; user_data: gpointer); cdecl;
 var
   LForm: TForm;
   LWSForm: TGtk4WSForm;
   LMainBox: PGtkBox;
   LWidget: PGtkWidget;
+  LFormWS: TObject;
 begin
   try
     WriteLn('GTK4 Application aktiviert - beginne Widget-Erstellung.');
@@ -355,7 +291,16 @@ begin
     if Assigned(GlobalMainForm) and (GlobalMainForm is TForm) then
     begin
       LForm := TForm(GlobalMainForm);
-      LWSForm := TGtk4WSForm(LForm.FWSControl);
+      
+      // Hole das WidgetSet-Objekt aus der Pascal-Form
+      LFormWS := LForm.FWSControl;
+      if not Assigned(LFormWS) then
+      begin
+        WriteLn('FEHLER: FWSControl nicht zugewiesen für MainForm');
+        Exit;
+      end;
+      
+      LWSForm := TGtk4WSForm(TWSWinControl(LFormWS));
 
       // Erstelle GTK ApplicationWindow
       LWidget := PGtkWidget(gtk_application_window_new(app));
@@ -390,13 +335,10 @@ begin
       g_object_set_data(PGObject(LWidget), 'mini_lcl_obj', gpointer(LForm));
       g_object_set_data(PGObject(LWidget), 'main_box', gpointer(LMainBox));
 
-      // Verbinde Signale
-      g_signal_connect(LWidget, 'close-request', @OnWindowClose, nil);
-      // g_signal_connect(LWidget, 'enter', @OnMouseEvent, nil); // Aktivieren bei Bedarf
-      // g_signal_connect(LWidget, 'leave', @OnMouseEvent, nil); // Aktivieren bei Bedarf
-      // g_signal_connect(LWidget, 'motion-notify-event', @OnMouseEvent, nil); // Aktivieren bei Bedarf
+      // TEMPORÄR DEAKTIVIERT: Verbinde Signale
+      // g_signal_connect(LWidget, 'close-request', @OnWindowClose, nil);
 
-      WriteLn('Signale für MainForm verbunden.');
+      WriteLn('Signale für MainForm temporär deaktiviert.');
 
       // Halte Application aktiv (jetzt, wo Widgets erstellt sind)
       g_application_hold(app);
@@ -406,11 +348,7 @@ begin
       gtk_window_present(PGtkWindow(LWidget));
       WriteLn('MainForm über GTK activate-Signal angezeigt.');
       
-      // Wenn Buttons vorhanden sind, müssen diese jetzt zur Box hinzugefügt werden.
-      // Dies erfordert, dass TGtk4WSButton.CreateHandle ebenfalls angepasst wird,
-      // um die Button-Erstellung zu verzögern und sie dann hier einzufügen.
-      // Für den PoC werden Buttons manuell über IterateAndAddControls hinzugefügt.
-      // Dies ist ein Platzhalter für eine zukünftige, robustere Implementierung.
+      // Füge Kind-Controls (Buttons) hinzu
       IterateAndAddControls(LForm, LMainBox);
 
     end
@@ -421,18 +359,6 @@ begin
   except
     on E: Exception do
       WriteLn('FEHLER in OnGtkActivate: ', E.Message);
-  end;
-end;
-
-// GTK4 Startup Handler - wird vor activate aufgerufen
-procedure OnGtkStartup(app: PGtkApplication; user_data: gpointer); cdecl;
-begin
-  try
-    WriteLn('GTK4 Application startup - bereit für Window-Erstellung');
-    // Hier können wir nichts machen - Windows werden erst in activate erstellt
-  except
-    on E: Exception do
-      WriteLn('FEHLER in OnGtkStartup: ', E.Message);
   end;
 end;
 
@@ -448,7 +374,6 @@ destructor TGtk4WidgetSet.Destroy;
 begin
   if Assigned(FApplication) then
   begin
-    // GTK Application wird automatisch durch GTK aufgeräumt
     FApplication := nil;
   end;
   inherited Destroy;
@@ -456,18 +381,15 @@ end;
 
 procedure TGtk4WidgetSet.Initialize;
 begin
-  // Initialisiere GTK4 zuerst
   gtk_init;
   WriteLn('GTK4 initialisiert.');
   
-  // Erstelle GTK4 Application
   FApplication := gtk_application_new('com.minilcl.demo', 0);
   if not Assigned(FApplication) then
     raise Exception.Create('Failed to create GTK4 application');
     
   WriteLn('GTK4 Application erstellt: ', Assigned(FApplication));
   
-  // Verbinde "activate" UND "startup" Signale für korrekte GTK4-Lifecycle
   g_signal_connect(FApplication, 'startup', @OnGtkStartup, nil);
   g_signal_connect(FApplication, 'activate', @OnGtkActivate, nil);
   
@@ -481,21 +403,15 @@ begin
   if Assigned(FApplication) then
   begin
     WriteLn('Starte GTK4 Hauptschleife...');
-    
-    // g_application_run blockiert bis Application beendet wird
     ExitCode := g_application_run(FApplication, 0, nil);
-    
     WriteLn('GTK4 Hauptschleife beendet mit Exit-Code: ', ExitCode);
   end
   else
-  begin
     WriteLn('FEHLER: Keine GTK4 Application verfügbar für Run');
-  end;
 end;
 
 procedure TGtk4WidgetSet.ProcessMessages;
 begin
-  // Verarbeite eine Iteration der GTK Main-Loop
   g_main_context_iteration(nil, False);
 end;
 
@@ -515,7 +431,6 @@ end;
 
 procedure TGtk4WSWinControl.CreateHandle;
 begin
-  // Basis-Implementation - überschrieben in Subklassen
   FWidget := nil;
 end;
 
@@ -523,15 +438,13 @@ procedure TGtk4WSWinControl.DestroyHandle;
 begin
   if Assigned(FWidget) then
   begin
-    // GTK Widgets werden automatisch durch Parent zerstört
     FWidget := nil;
   end;
 end;
 
 procedure TGtk4WSWinControl.SetBounds(ALeft, ATop, AWidth, AHeight: Integer);
 begin
-  // TODO: GTK4 hat kein GtkFixed - Bounds werden für Demo ignoriert
-  // In echter Implementation würde hier Layout-Management stehen
+  // TODO: GTK4 Layout-Management
 end;
 
 procedure TGtk4WSWinControl.SetVisible(AVisible: Boolean);
@@ -549,19 +462,14 @@ end;
 // TGtk4WSForm Implementation
 procedure TGtk4WSForm.CreateHandle;
 begin
-  // Diese Methode sollte *keine* GTK-Widgets erstellen, sondern nur Initialisierung durchführen.
-  // Die eigentliche GTK-Widget-Erstellung erfolgt in OnGtkActivate.
-  FWidget := nil; // Sicherstellen, dass FWidget initial nil ist
+  FWidget := nil;
   
-  // Speichere das Control für spätere Verwendung in OnGtkActivate
-  // Dies ist ein temporärer Mechanismus, um die Pascal TForm-Instanz zu übergeben.
   if not Assigned(GlobalMainForm) and Assigned(Control) and (Control is TForm) then
   begin
-    GlobalMainForm := Control;
+    GlobalMainForm := TWinControl(Control);
     WriteLn('Pascal MainForm Referenz gespeichert für GTK4 activate-Signal.');
   end;
   
-  // Setze Handle in TWinControl auf nil bis das GTK-Widget erstellt ist
   TWinControl(Control).FHandle := nil;
   WriteLn('TGtk4WSForm.CreateHandle aufgerufen - GTK Widget-Erstellung verzögert.');
 end;
@@ -590,10 +498,7 @@ end;
 // TGtk4WSButton Implementation
 procedure TGtk4WSButton.CreateHandle;
 begin
-  // Diese Methode sollte keine GTK-Widgets erstellen.
-  // Die eigentliche GTK-Widget-Erstellung und das Anhängen an die Box erfolgen in IterateAndAddControls
-  // nachdem die Form in OnGtkActivate erstellt wurde.
-  FWidget := nil; // Sicherstellen, dass FWidget initial nil ist
+  FWidget := nil;
   WriteLn('TGtk4WSButton.CreateHandle aufgerufen - GTK Widget-Erstellung verzögert.');
 end;
 
@@ -608,20 +513,24 @@ procedure TGtk4WidgetSet.CreateControlHandle(AControl: TWinControl);
 var
   WSControl: TWSWinControl;
 begin
-  if not Assigned(AControl.Handle) then
+  if not Assigned(AControl.Handle) and not Assigned(AControl.FWSControl) then
   begin
-    // Erstelle passende WSControl-Instanz
     if AControl is TForm then
     begin
       WSControl := TGtk4WSForm.Create(AControl);
-      WSControl.CreateHandle;
+      TGtk4WSForm(WSControl).CreateHandle;
     end
     else if AControl is TButton then
     begin
       WSControl := TGtk4WSButton.Create(AControl);
-      WSControl.CreateHandle;
+      TGtk4WSButton(WSControl).CreateHandle;
     end;
-    // Weitere Control-Typen können hier hinzugefügt werden
+    
+    if Assigned(WSControl) then
+    begin
+      AControl.FWSControl := WSControl;
+      WriteLn('FWSControl zugewiesen für: ', AControl.ClassName);
+    end;
   end;
 end;
 
@@ -630,14 +539,12 @@ begin
   if Assigned(AControl.Handle) then
   begin
     // GTK Widgets werden automatisch durch Parent zerstört
-    // Keine explizite Zerstörung nötig
   end;
 end;
 
 procedure TGtk4WidgetSet.SetControlBounds(AControl: TWinControl; ALeft, ATop, AWidth, AHeight: Integer);
 begin
   // TODO: GTK4 Layout-Management
-  // Für PoC: Bounds werden ignoriert, da GTK4 eigenes Layout hat
 end;
 
 procedure TGtk4WidgetSet.SetControlVisible(AControl: TWinControl; AVisible: Boolean);

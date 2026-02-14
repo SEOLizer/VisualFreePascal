@@ -54,6 +54,7 @@ type
   TWinControl = class(TControl)
   public
     FHandle: Pointer; // Public für WidgetSet-Zugriff
+    FWSControl: TObject; // NEU: Referenz auf das WidgetSet-Objekt (als TObject für Forward-Deklaration)
   private
     FControls: TControlList;
     function GetControl(Index: Integer): TControl;
