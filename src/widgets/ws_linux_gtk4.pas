@@ -4,7 +4,7 @@ unit ws_linux_gtk4;
 interface
 
 uses
-  rtl_sys, events, classes, controls, forms, stdctrls, ws_intf;
+  math, rtl_sys, events, classes, controls, forms, stdctrls, ws_intf;
 
 type
   // GTK4 Basis-Typen (Inline-Bindings)
@@ -133,7 +133,7 @@ var
 
 // Forward-Deklarationen für Event-Handler
 procedure OnGtkButtonClicked(widget: PGtkWidget; user_data: gpointer); cdecl; forward;
-procedure OnWindowClose(widget: PGtkWidget; user_data: gpointer); cdecl; forward;
+function OnWindowClose(widget: PGtkWidget; user_data: gpointer): gboolean; cdecl; forward;
 function OnMouseEvent(widget: PGtkWidget; event: Pointer; user_data: gpointer): gboolean; cdecl; forward;
 
 // Helper-Funktion für g_signal_connect 
@@ -158,11 +158,12 @@ begin
   Result := False;
 end;
 
-// Window Close Event Handler
-procedure OnWindowClose(widget: PGtkWidget; user_data: gpointer); cdecl;
+// Window Close Event Handler - Muss gboolean zurückgeben!
+function OnWindowClose(widget: PGtkWidget; user_data: gpointer): gboolean; cdecl;
 var
   Control: TObject;
 begin
+  Result := False; // Standard: Event nicht behandelt
   try
     WriteLn('Window Close Event empfangen');
     
@@ -184,6 +185,8 @@ begin
       WriteLn('Beende GTK4 Application...');
       g_application_quit(Gtk4WidgetSet.FApplication);
     end;
+    
+    Result := True; // Event wurde behandelt
   except
     on E: Exception do
       WriteLn('FEHLER in OnWindowClose: ', E.Message);
@@ -251,8 +254,8 @@ begin
         // Speichere die Pascal-Control-Referenz im GTK-Widget
         g_object_set_data(PGObject(LButtonWidget), 'mini_lcl_obj', gpointer(LChildControl));
 
-        // TEMPORÄR DEAKTIVIERT: Verbinde das 'clicked'-Signal
-        // g_signal_connect(LButtonWidget, 'clicked', @OnGtkButtonClicked, nil);
+        // Verbinde das 'clicked'-Signal
+        g_signal_connect(LButtonWidget, 'clicked', @OnGtkButtonClicked, nil);
 
         // Füge den Button zur Parent-Box hinzu
         gtk_box_append(AGtkParentBox, PGtkWidget(LButtonWidget));
@@ -335,10 +338,10 @@ begin
       g_object_set_data(PGObject(LWidget), 'mini_lcl_obj', gpointer(LForm));
       g_object_set_data(PGObject(LWidget), 'main_box', gpointer(LMainBox));
 
-      // TEMPORÄR DEAKTIVIERT: Verbinde Signale
-      // g_signal_connect(LWidget, 'close-request', @OnWindowClose, nil);
+      // Verbinde close-request Signal (mit korrigierter Signatur)
+      g_signal_connect(LWidget, 'close-request', @OnWindowClose, nil);
 
-      WriteLn('Signale für MainForm temporär deaktiviert.');
+      WriteLn('Signale für MainForm verbunden.');
 
       // Halte Application aktiv (jetzt, wo Widgets erstellt sind)
       g_application_hold(app);
@@ -381,6 +384,11 @@ end;
 
 procedure TGtk4WidgetSet.Initialize;
 begin
+  // Setze FPU-Exception-Maskierung um Runtime Error 207 zu vermeiden
+  // Dies ist notwendig weil GTK4 FPU-Operationen durchführt, die Pascal als Fehler erkennt
+  SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
+  WriteLn('FPU-Exception-Maskierung gesetzt.');
+  
   gtk_init;
   WriteLn('GTK4 initialisiert.');
   
