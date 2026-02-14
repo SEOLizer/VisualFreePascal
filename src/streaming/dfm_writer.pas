@@ -17,6 +17,7 @@ type
     function GetIndent: string;
     procedure WriteNode(ANode: TDfmNode);
     procedure WriteValue(AValue: TDfmValue);
+    function EscapeString(const S: string): string;
   public
     constructor Create;
     destructor Destroy; override;
@@ -52,6 +53,24 @@ begin
   FOutput.Add(GetIndent + AText);
 end;
 
+function TDfmWriter.EscapeString(const S: string): string;
+var
+  I: Integer;
+  Ch: Char;
+begin
+  Result := '''';
+  for I := 1 to Length(S) do
+  begin
+    Ch := S[I];
+    case Ch of
+      '''': Result := Result + '''''';
+      #0..#31, #127..#255: Result := Result + '#' + IntToStr(Ord(Ch));
+      else Result := Result + Ch;
+    end;
+  end;
+  Result := Result + '''';
+end;
+
 procedure TDfmWriter.WriteValue(AValue: TDfmValue);
 var
   S: string;
@@ -59,12 +78,28 @@ begin
   case AValue.Kind of
     dvkInteger, dvkFloat, dvkIdentifier:
       S := AValue.RawValue;
+      
     dvkBoolean:
-      if AValue.AsBoolean then S := 'True' else S := 'False';
+      if AValue.AsBoolean then 
+        S := 'True' 
+      else 
+        S := 'False';
+        
     dvkString:
-      S := '''' + AValue.AsString + '''';
+      S := EscapeString(AValue.AsString);
+      
     dvkNil:
       S := 'nil';
+      
+    dvkSet:
+      S := AValue.RawValue;  // Set ist bereits als String gespeichert
+      
+    dvkCollection:
+      S := AValue.RawValue;  // Collection ist bereits als String gespeichert
+      
+    dvkBinary:
+      S := AValue.RawValue;  // Binary ist bereits als String gespeichert
+      
     else
       S := AValue.RawValue;
   end;
