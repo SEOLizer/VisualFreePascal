@@ -125,4 +125,82 @@ begin
   Result := -1;
 end;
 
+{==============================================================================}
+{ TObjectList - Liste die TObject-Instanzen besitzt                            }
+{==============================================================================}
+
+type
+  TObjectList = class(TList)
+  private
+    FOwnsObjects: Boolean;
+  public
+    constructor Create(AOwnsObjects: Boolean = True);
+    destructor Destroy; override;
+    procedure Clear; override;
+    procedure Delete(Index: Integer); override;
+    function GetItem(Index: Integer): TObject;
+    procedure SetItem(Index: Integer; Value: TObject);
+    function Add(Item: TObject): Integer;
+    function Remove(Item: TObject): Integer;
+    property Items[Index: Integer]: TObject read GetItem write SetItem; default;
+    property OwnsObjects: Boolean read FOwnsObjects write FOwnsObjects;
+  end;
+
+constructor TObjectList.Create(AOwnsObjects: Boolean = True);
+begin
+  inherited Create;
+  FOwnsObjects := AOwnsObjects;
+end;
+
+destructor TObjectList.Destroy;
+begin
+  if FOwnsObjects then
+    Clear;
+  inherited Destroy;
+end;
+
+procedure TObjectList.Clear;
+var
+  i: Integer;
+begin
+  if FOwnsObjects then
+    for i := 0 to Count - 1 do
+      TObject(FItems[i]).Free;
+  inherited Clear;
+end;
+
+procedure TObjectList.Delete(Index: Integer);
+begin
+  if FOwnsObjects and (Index >= 0) and (Index < FCount) then
+    TObject(FItems[Index]).Free;
+  inherited Delete(Index);
+end;
+
+function TObjectList.GetItem(Index: Integer): TObject;
+begin
+  if (Index >= 0) and (Index < FCount) then
+    Result := TObject(FItems[Index])
+  else
+    raise EInvalidOperation.Create('List index out of bounds');
+end;
+
+procedure TObjectList.SetItem(Index: Integer; Value: TObject);
+begin
+  if FOwnsObjects and (Index >= 0) and (Index < FCount) then
+    TObject(FItems[Index]).Free;
+  inherited SetItem(Index, Pointer(Value));
+end;
+
+function TObjectList.Add(Item: TObject): Integer;
+begin
+  Result := inherited Add(Pointer(Item));
+end;
+
+function TObjectList.Remove(Item: TObject): Integer;
+begin
+  Result := IndexOf(Pointer(Item));
+  if Result >= 0 then
+    Delete(Result);
+end;
+
 end.
